@@ -34,10 +34,10 @@ class ChatBotBrain:
     def __init__(self):
         self.user_name = None  # Memoria en sesión para recordar el nombre
 
-        # --- INICIO AGREGADO: MODO PROFE ---
+        # --- MODO PROFE ---
         self.modo_profe_activo = False
         
-        # Banco de preguntas frecuentes (claves en minúsculas y sin tildes para fácil coincidencia)
+        # Banco de preguntas frecuentes
         self.faq_profe = {
             "que es python": "Python es un lenguaje de programación de alto nivel, interpretado y muy popular por ser fácil de leer y escribir.",
             "que es una libreria": "Una librería (o biblioteca) es un conjunto de código preescrito que puedes reutilizar para no tener que programar todo desde cero.",
@@ -64,9 +64,24 @@ class ChatBotBrain:
             "que es un modulo": "Un módulo es un archivo que contiene código Python (funciones, variables, clases) que puedes importar y usar en otros archivos.",
             "que es un ide": "Un IDE (Entorno de Desarrollo Integrado) es un programa como VS Code o PyCharm que nos da herramientas para escribir, probar y corregir código más fácil."
         }
-        # --- FIN AGREGADO: MODO PROFE ---
 
-        # Definición de intenciones normales...
+        # --- INICIO AGREGADO: PALABRAS CLAVE Y RESPUESTAS DE ÁNIMO ---
+        self.frustration_keywords = [
+            "no entiendo", "dificil", "estresado", "estresada", "estres", "frustrado", 
+            "frustrada", "no me sale", "no puedo", "imposible", "me rindo", "rendirme", 
+            "complicado", "no sirve", "no entiendo nada", "cansado", "cansada", 
+            "bloqueado", "bloqueada", "odio esto", "no me funciona", "harto", "harta"
+        ]
+        
+        self.frustration_responses = [
+            "Programar puede ser desafiante al principio, pero no te desanimes. 🌿 Tómate un pequeño descanso, respira hondo y verás que al volver todo estará más claro. ¿Qué parte te está costando más?",
+            "¡Tranquilo/a! Pasar por momentos de bloqueo o frustración es una parte normal y necesaria de aprender a programar. Todos los desarrolladores pasan por esto. ¡Vas a lograrlo!",
+            "Cometer errores y sentirse atascado es justo cómo se aprende. No te rindas, ve paso a paso o prueba activar el 'modo profe' para repasar los conceptos básicos. ¡Aquí estoy para apoyarte!",
+            "Sé que puede ser frustrante cuando el código no sale a la primera, pero recuerda que cada error corregido es un aprendizaje nuevo. ¡Tú puedes con esto!"
+        ]
+        # --- FIN AGREGADO: ÁNIMO ---
+
+        # Definición de intenciones normales
         self.intents = {
             "saludo": {
                 "keywords": ["hola", "buenos", "dias", "tardes", "noches", "que tal", "saludos", "hey"],
@@ -200,6 +215,16 @@ class ChatBotBrain:
 
         return None
 
+    # --- INICIO AGREGADO: MÉTODO PARA DETECTAR FRUSTRACIÓN ---
+    def detect_frustration(self, norm_text: str) -> str | None:
+        """Detecta si el usuario expresa frustración o desánimo y devuelve una respuesta empática."""
+        for kw in self.frustration_keywords:
+            norm_kw = self.normalize(kw)
+            if norm_kw in norm_text:
+                return random.choice(self.frustration_responses)
+        return None
+    # --- FIN AGREGADO: MÉTODO PARA DETECTAR FRUSTRACIÓN ---
+
     def get_response(self, raw_input: str) -> str:
         """
         Paso 2, 3 y 4: Puntuar intenciones, decidir ganadora y responder.
@@ -208,36 +233,37 @@ class ChatBotBrain:
         if not normalized_input:
             return "Parece que no escribiste nada. ¿En qué te puedo ayudar?"
 
-        # --- INICIO AGREGADO: LÓGICA DEL MODO PROFE ---
-        # Activar el modo profe
+        # LÓGICA DEL MODO PROFE
         if "modo profe" in normalized_input and not self.modo_profe_activo:
             self.modo_profe_activo = True
             return "¡Modo Profe activado! 🧑‍🏫 Hazme tus preguntas del módulo sobre Python, Flet, librerías, etc. (Escribe 'salir profe' para desactivarlo)."
         
-        # Desactivar el modo profe
         if "salir profe" in normalized_input and self.modo_profe_activo:
             self.modo_profe_activo = False
             return "Modo Profe desactivado. ¡Volvemos al asistente normal! 🤖"
 
-        # Si el modo profe está activo, interceptamos el mensaje y buscamos en el FAQ
         if self.modo_profe_activo:
             for pregunta, respuesta in self.faq_profe.items():
                 if pregunta in normalized_input:
                     return respuesta
             return "Hmm, no tengo esa respuesta en mi banco de preguntas. Intenta preguntar sobre qué es Python, variables, listas, flet, venv, etc."
-        # --- FIN AGREGADO: LÓGICA DEL MODO PROFE ---
 
-        # 1. Verificar si el usuario interactúa con su nombre
+        # 1. Verificar si expresa frustración o desánimo
+        frustration_response = self.detect_frustration(normalized_input)
+        if frustration_response:
+            return frustration_response
+
+        # 2. Verificar si el usuario interactúa con su nombre
         name_response = self.detect_name(raw_input, normalized_input)
         if name_response:
             return name_response
 
-        # 2. Verificar si es una operación matemática
+        # 3. Verificar si es una operación matemática
         math_response = self.evaluate_math(raw_input)
         if math_response:
             return math_response
 
-        # 3. Puntuación de intenciones según palabras clave
+        # 4. Puntuación de intenciones según palabras clave
         scores = {}
         for intent_name, data in self.intents.items():
             score = 0
