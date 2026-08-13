@@ -1,9 +1,3 @@
-"""
-Misión 3: Juego de la Serpiente (Snake)
-Asignatura: Desarrollo de Software - INDEL 3DS
-Tecnología: Python 3 + Pygame
-"""
-
 import sys
 import random
 import os
@@ -28,6 +22,7 @@ COLOR_SNAKE_BODY = (57, 255, 136) # Cuerpo: Verde Neón
 COLOR_FOOD = (255, 46, 151)       # Comida: Magenta Neón
 COLOR_TEXT = (233, 233, 246)      # Texto blanco suave
 COLOR_ACCENT = (255, 179, 0)      # Acento: Ámbar
+COLOR_OBSTACLE = (255, 50, 50)    # NUEVO - Obstáculo: Rojo Neón
 
 # Direcciones
 UP = (0, -1)
@@ -87,14 +82,15 @@ class Food:
     def __init__(self):
         self.position = (0, 0)
 
-    def spawn(self, snake_body):
+    # NUEVO - Ahora pasamos los obstáculos para que la comida no aparezca sobre ellos
+    def spawn(self, snake_body, obstacles):
         while True:
             new_pos = (
                 random.randint(0, GRID_WIDTH - 1),
                 random.randint(0, GRID_HEIGHT - 1)
             )
-            # Asegura que la comida no aparezca sobre el cuerpo de la serpiente
-            if new_pos not in snake_body:
+            # Asegura que la comida no aparezca sobre el cuerpo o los obstáculos
+            if new_pos not in snake_body and new_pos not in obstacles:
                 self.position = new_pos
                 break
 
@@ -114,7 +110,8 @@ class Game:
 
         self.snake = Snake()
         self.food = Food()
-        self.food.spawn(self.snake.body)
+        self.obstacles = [] # NUEVO - Lista para guardar los obstáculos
+        self.food.spawn(self.snake.body, self.obstacles)
 
         self.score = 0
         self.high_score = self.load_high_score()
@@ -137,9 +134,25 @@ class Game:
         except Exception as e:
             print(f"No se pudo guardar el récord: {e}")
 
+    # NUEVO - Función para generar obstáculos
+    def spawn_obstacle(self):
+        while True:
+            new_pos = (
+                random.randint(0, GRID_WIDTH - 1),
+                random.randint(0, GRID_HEIGHT - 1)
+            )
+            # Evitamos que el obstáculo aparezca sobre la serpiente, la comida u otro obstáculo
+            if (new_pos not in self.snake.body and 
+                new_pos != self.food.position and 
+                new_pos not in self.obstacles):
+                
+                self.obstacles.append(new_pos)
+                break
+
     def reset_game(self):
         self.snake.reset()
-        self.food.spawn(self.snake.body)
+        self.obstacles.clear() # NUEVO - Limpiar obstáculos al reiniciar
+        self.food.spawn(self.snake.body, self.obstacles)
         self.score = 0
         self.state = STATE_PLAYING
 
@@ -156,7 +169,6 @@ class Game:
                         self.reset_game()
 
                 elif self.state == STATE_PLAYING:
-                    # Controles de dirección (Flechas o WASD)
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self.snake.change_direction(UP)
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
@@ -182,8 +194,11 @@ class Game:
 
         self.snake.update()
 
-        # Detección de colisión con los bordes o consigo misma
-        if self.snake.check_wall_collision() or self.snake.check_self_collision():
+        # NUEVO - Detección de colisión con bordes, consigo misma, o con un OBSTÁCULO
+        if (self.snake.check_wall_collision() or 
+            self.snake.check_self_collision() or 
+            self.snake.body[0] in self.obstacles):
+            
             self.state = STATE_GAME_OVER
             if self.score > self.high_score:
                 self.high_score = self.score
@@ -194,9 +209,15 @@ class Game:
         if self.snake.body[0] == self.food.position:
             self.snake.grow = True
             self.score += 10
+            
+            # NUEVO - Si el puntaje es 100 o más, generamos un obstáculo nuevo cada vez que come
+            if self.score >= 100:
+                self.spawn_obstacle()
+                
             if self.score > self.high_score:
                 self.high_score = self.score
-            self.food.spawn(self.snake.body)
+                
+            self.food.spawn(self.snake.body, self.obstacles)
 
     def draw_grid(self):
         for x in range(0, SCREEN_WIDTH, GRID_SIZE):
@@ -220,7 +241,7 @@ class Game:
         self.screen.blit(txt_high, (SCREEN_WIDTH - txt_high.get_width() - 20, 15))
 
     def draw_elements(self):
-        # 1. Dibujar Comida (con efecto redondeado / borde brillante)
+        # 1. Dibujar Comida
         food_rect = pygame.Rect(
             self.food.position[0] * GRID_SIZE + 2,
             HEADER_HEIGHT + self.food.position[1] * GRID_SIZE + 2,
@@ -228,8 +249,19 @@ class Game:
             GRID_SIZE - 4
         )
         pygame.draw.rect(self.screen, COLOR_FOOD, food_rect, border_radius=6)
+        
+        # NUEVO - 2. Dibujar Obstáculos
+        for obs in self.obstacles:
+            obs_rect = pygame.Rect(
+                obs[0] * GRID_SIZE + 1,
+                HEADER_HEIGHT + obs[1] * GRID_SIZE + 1,
+                GRID_SIZE - 2,
+                GRID_SIZE - 2
+            )
+            # Dibujamos un cuadrado sólido para el obstáculo
+            pygame.draw.rect(self.screen, COLOR_OBSTACLE, obs_rect, border_radius=2)
 
-        # 2. Dibujar Serpiente
+        # 3. Dibujar Serpiente
         for index, segment in enumerate(self.snake.body):
             seg_rect = pygame.Rect(
                 segment[0] * GRID_SIZE + 1,
