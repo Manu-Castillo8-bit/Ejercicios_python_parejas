@@ -136,7 +136,6 @@ def main(page: ft.Page):
     def actualizar_lista_integrantes():
         lista_integrantes.controls.clear()
         
-        # Compatibilidad de íconos según la versión de Flet instalada
         icon_persona = getattr(ft.Icons, "PERSON", "person") if hasattr(ft, "Icons") else "person"
         icon_borrar = getattr(ft.Icons, "DELETE", "delete") if hasattr(ft, "Icons") else "delete"
 
@@ -237,18 +236,14 @@ def main(page: ft.Page):
     resumen_col = ft.Column()
     pagos_col = ft.Column()
     
-    def copiar_portapapeles(e):
-        texto = "🐮 RESUMEN DE LA VACA 🐮\n\n"
-        for p in pagos_col.controls:
-            if isinstance(p, ft.Text):
-                texto += p.value + "\n"
-        try:
-            page.set_clipboard(texto)
-        except Exception:
-            pass
-        mostrar_mensaje("¡Plan de pagos copiado al portapapeles listo para WhatsApp!")
-
-    btn_compartir = ft.ElevatedButton("📋 Copiar para WhatsApp", on_click=copiar_portapapeles, bgcolor="green", color="white")
+    # Campo de texto corregido (sin el parámetro incompatible)
+    txt_copiable = ft.TextField(
+        label="📋 Resumen listo para copiar",
+        multiline=True,
+        read_only=True,
+        min_lines=6,
+        max_lines=10,
+    )
 
     def actualizar_resumen():
         resumen_col.controls.clear()
@@ -256,27 +251,39 @@ def main(page: ft.Page):
         
         if not evento["integrantes"]:
             resumen_col.controls.append(ft.Text("No hay integrantes aún."))
+            txt_copiable.value = "No hay datos para copiar."
             page.update()
             return
             
         saldos = calcular_saldos(evento["integrantes"], evento["gastos"])
         
         resumen_col.controls.append(ft.Text("Estado de Cuentas:", weight="bold", size=18))
+        
+        texto_para_copiar = "🐮 *RESUMEN DE LA VACA* 🐮\n\n📊 *Estado de Cuentas:*\n"
+
         for nombre, saldo_centavos in saldos.items():
             saldo = saldo_centavos / 100.0
             color_texto = "green" if saldo > 0 else "red" if saldo < 0 else "grey"
-            texto = f"{nombre}: {'Le deben' if saldo > 0 else 'Debe'} ${abs(saldo):.2f}" if saldo != 0 else f"{nombre}: Saldo $0.00"
-            resumen_col.controls.append(ft.Text(texto, color=color_texto, weight="bold"))
+            linea_texto = f"{nombre}: {'Le deben' if saldo > 0 else 'Debe'} ${abs(saldo):.2f}" if saldo != 0 else f"{nombre}: Saldo $0.00"
+            
+            resumen_col.controls.append(ft.Text(linea_texto, color=color_texto, weight="bold"))
+            texto_para_copiar += f"• {linea_texto}\n"
             
         pagos = optimizar_pagos(saldos)
         pagos_col.controls.append(ft.Text("Plan de Pagos (Minimizado):", weight="bold", size=18, color="cyan"))
+        texto_para_copiar += "\n💸 *Plan de Pagos:*\n"
         
         if not pagos:
             pagos_col.controls.append(ft.Text("💸 ¡Todos están al día! Cuentas saldadas."))
+            texto_para_copiar += "¡Todos están al día!"
         else:
             for p in pagos:
-                pagos_col.controls.append(ft.Text(f"👉 {p['de']} le transfiere a {p['para']}: ${p['monto']:.2f}"))
+                linea_pago = f"👉 {p['de']} le transfiere a {p['para']}: ${p['monto']:.2f}"
+                pagos_col.controls.append(ft.Text(linea_pago))
+                texto_para_copiar += f"{linea_pago}\n"
                 
+        # Actualizar el cuadro de copia directa
+        txt_copiable.value = texto_para_copiar
         page.update()
 
     # --- VISTAS DE LAS PESTAÑAS ---
@@ -301,15 +308,19 @@ def main(page: ft.Page):
         ], scroll="adaptive")
     )
 
-    vista_saldos = ft.Container(
-        padding=10,
-        content=ft.Column([
-            resumen_col,
-            ft.Divider(),
-            pagos_col,
-            ft.Container(height=20),
-            btn_compartir
-        ], scroll="adaptive")
+    # Vista envuelta en SelectionArea para permitir la selección manual con el dedo
+    vista_saldos = ft.SelectionArea(
+        content=ft.Container(
+            padding=10,
+            content=ft.Column([
+                resumen_col,
+                ft.Divider(),
+                pagos_col,
+                ft.Divider(),
+                ft.Text("👇 Mantén presionado el texto de abajo para copiarlo:", weight="bold", color="amber"),
+                txt_copiable
+            ], scroll="adaptive")
+        )
     )
 
     contenedor_principal = ft.Container(content=vista_grupo, expand=True)
