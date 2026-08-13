@@ -135,14 +135,20 @@ def main(page: ft.Page):
 
     def actualizar_lista_integrantes():
         lista_integrantes.controls.clear()
+        
+        # Compatibilidad de íconos según la versión de Flet instalada
+        icon_persona = getattr(ft.Icons, "PERSON", "person") if hasattr(ft, "Icons") else "person"
+        icon_borrar = getattr(ft.Icons, "DELETE", "delete") if hasattr(ft, "Icons") else "delete"
+
         for integrante in evento["integrantes"]:
             lista_integrantes.controls.append(
                 ft.ListTile(
                     title=ft.Text(integrante),
-                    leading=ft.Icon("person"),
+                    leading=ft.Icon(icon_persona),
                     trailing=ft.IconButton(
-                        icon="delete", 
+                        icon=icon_borrar,
                         icon_color="red",
+                        tooltip="Eliminar integrante",
                         on_click=lambda e, nom=integrante: eliminar_integrante(nom)
                     )
                 )
@@ -306,15 +312,12 @@ def main(page: ft.Page):
         ], scroll="adaptive")
     )
 
-    # Contenedor dinámico de vista activa
     contenedor_principal = ft.Container(content=vista_grupo, expand=True)
 
-    # --- NAVEGACIÓN PERSONALIZADA (100% INMUNE A ERRORES DE VERSION) ---
     def cambiar_tab(e, index):
         vistas = [vista_grupo, vista_gastos, vista_saldos]
         contenedor_principal.content = vistas[index]
         
-        # Resaltar botón activo
         btn_tab_grupo.bgcolor = "blue" if index == 0 else "grey_800"
         btn_tab_gastos.bgcolor = "blue" if index == 1 else "grey_800"
         btn_tab_saldos.bgcolor = "blue" if index == 2 else "grey_800"
