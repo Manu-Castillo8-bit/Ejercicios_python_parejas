@@ -1,330 +1,341 @@
-"""
-====================================================================
-GUÍA DE MISIONES PYTHON - INDEL 3DS "B"
-MISIÓN 6: Optimización de Carga del Camión de Vacas (Flet GUI)
-Algoritmo: Problema de la Mochila 0/1 (Programación Dinámica)
-====================================================================
-"""
-
-from dataclasses import dataclass
-from typing import List, Tuple
 import flet as ft
+import json
+import os
 
+ARCHIVO_JSON = "vaca_datos.json"
 
-@dataclass
-class Vaca:
-    nombre: str
-    peso: int       # En kilogramos
-    litros: float   # En litros de leche
+# ==========================================
+# 1. MANEJO DE DATOS Y ALMACENAMIENTO (JSON)
+# ==========================================
 
+def cargar_datos():
+    """Carga los datos desde el archivo JSON o crea una estructura vacía."""
+    if os.path.exists(ARCHIVO_JSON):
+        try:
+            with open(ARCHIVO_JSON, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {"evento_actual": {"integrantes": [], "gastos": []}}
+    return {"evento_actual": {"integrantes": [], "gastos": []}}
 
-def optimizar_mochila(vacas: List[Vaca], capacidad_max: int) -> Tuple[float, int, List[Vaca]]:
-    """Resuelve la mochila 0/1 para maximizar la producción de leche."""
-    n = len(vacas)
-    if n == 0 or capacidad_max <= 0:
-        return 0.0, 0, []
+def guardar_datos(datos):
+    """Guarda los datos en el archivo al instante."""
+    with open(ARCHIVO_JSON, "w", encoding="utf-8") as f:
+        json.dump(datos, f, indent=4)
 
-    dp = [[0.0] * (capacidad_max + 1) for _ in range(n + 1)]
+# ==========================================
+# 2. LA MATEMÁTICA Y EL ALGORITMO VORAZ
+# ==========================================
 
-    for i in range(1, n + 1):
-        vaca = vacas[i - 1]
-        peso = vaca.peso
-        litros = vaca.litros
+def calcular_saldos(integrantes, gastos):
+    """Calcula cuánto debe o le deben a cada persona en centavos."""
+    saldos = {nombre: 0 for nombre in integrantes}
+    
+    for gasto in gastos:
+        monto_centavos = int(round(gasto["monto"] * 100))
+        pagador = gasto["pagador"]
+        involucrados = gasto["involucrados"]
+        
+        if not involucrados:
+            continue
+            
+        saldos[pagador] += monto_centavos
+        
+        cuota_base = monto_centavos // len(involucrados)
+        centavos_sobrantes = monto_centavos % len(involucrados)
+        
+        for i, persona in enumerate(involucrados):
+            cuota = cuota_base + (1 if i < centavos_sobrantes else 0)
+            saldos[persona] -= cuota
+            
+    return saldos
 
-        for w in range(capacidad_max + 1):
-            if peso <= w:
-                dp[i][w] = max(dp[i - 1][w], dp[i - 1][w - peso] + litros)
-            else:
-                dp[i][w] = dp[i - 1][w]
+def optimizar_pagos(saldos):
+    """Algoritmo Voraz (Greedy) para minimizar transacciones."""
+    deudores = []
+    acreedores = []
+    
+    for nombre, saldo in saldos.items():
+        if saldo < 0:
+            deudores.append([-saldo, nombre]) 
+        elif saldo > 0:
+            acreedores.append([saldo, nombre])
+            
+    deudores.sort(reverse=True, key=lambda x: x[0])
+    acreedores.sort(reverse=True, key=lambda x: x[0])
+    
+    movimientos = []
+    i, j = 0, 0
+    
+    while i < len(deudores) and j < len(acreedores):
+        deuda, deudor = deudores[i]
+        credito, acreedor = acreedores[j]
+        
+        monto_transferir = min(deuda, credito)
+        
+        movimientos.append({
+            "de": deudor,
+            "para": acreedor,
+            "monto": monto_transferir / 100.0 
+        })
+        
+        deudores[i][0] -= monto_transferir
+        acreedores[j][0] -= monto_transferir
+        
+        if deudores[i][0] == 0:
+            i += 1
+        if acreedores[j][0] == 0:
+            j += 1
+            
+    return movimientos
 
-    seleccionadas = []
-    w_restante = capacidad_max
-    for i in range(n, 0, -1):
-        if dp[i][w_restante] != dp[i - 1][w_restante]:
-            vaca_elegida = vacas[i - 1]
-            seleccionadas.append(vaca_elegida)
-            w_restante -= vaca_elegida.peso
-
-    seleccionadas.reverse()
-    peso_total = sum(v.peso for v in seleccionadas)
-    max_produccion = dp[n][capacidad_max]
-
-    return max_produccion, peso_total, seleccionadas
-
+# ==========================================
+# 3. INTERFAZ GRÁFICA (FLET)
+# ==========================================
 
 def main(page: ft.Page):
-    page.title = "Misión 6: Camión de Vacas · Mochila 0/1"
+    page.title = "La Vaca 🐮 - Cuentas Claras"
     page.theme_mode = "dark"
-    page.padding = 20
     page.scroll = "adaptive"
+    page.padding = 20
 
-    lista_vacas: List[Vaca] = []
+    try:
+        page.window.width = 400
+        page.window.height = 800
+    except AttributeError:
+        try:
+            page.window_width = 400
+            page.window_height = 800
+        except Exception:
+            pass
 
-    def mostrar_mensaje(texto: str, es_error: bool = False):
-        page.snack_bar = ft.SnackBar(
-            content=ft.Text(texto, color="white"),
-            bgcolor="red700" if es_error else "teal700",
-            duration=3000
+    datos = cargar_datos()
+    evento = datos["evento_actual"]
+
+    # --- COMPONENTES VISUALES ---
+    
+    def mostrar_mensaje(texto, error=False):
+        snack = ft.SnackBar(
+            content=ft.Text(texto), 
+            bgcolor="red" if error else "green"
         )
-        page.snack_bar.open = True
-        page.update()
+        try:
+            page.open(snack)
+        except AttributeError:
+            try:
+                page.snack_bar = snack
+                page.snack_bar.open = True
+                page.update()
+            except Exception:
+                pass
 
-    # Campos de Entrada
-    txt_capacidad = ft.TextField(
-        label="🚚 Capacidad del Camión (kg)",
-        hint_text="Ej: 700",
-        value="700",
-        keyboard_type="number",
-        width=260,
-        border_color="cyan400"
-    )
+    # --- PESTAÑA 1: INTEGRANTES ---
+    txt_nuevo_integrante = ft.TextField(label="Nombre del integrante", expand=True)
+    lista_integrantes = ft.ListView(spacing=10, height=200)
 
-    txt_nombre = ft.TextField(
-        label="🐄 Nombre / Id Vaca",
-        hint_text="Ej: Margarita",
-        width=220
-    )
-
-    txt_peso = ft.TextField(
-        label="⚖️ Peso (kg)",
-        hint_text="Ej: 360",
-        keyboard_type="number",
-        width=160
-    )
-
-    txt_litros = ft.TextField(
-        label="🥛 Producción (Litros)",
-        hint_text="Ej: 40.5",
-        keyboard_type="number",
-        width=180
-    )
-
-    # Tabla de vacas
-    tabla_vacas = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("#")),
-            ft.DataColumn(ft.Text("Nombre")),
-            ft.DataColumn(ft.Text("Peso (kg)"), numeric=True),
-            ft.DataColumn(ft.Text("Litros (L)"), numeric=True),
-            ft.DataColumn(ft.Text("Acción")),
-        ],
-        rows=[]
-    )
-
-    lbl_produccion_total = ft.Text("0.00 L", size=28, weight="bold", color="greenAccent")
-    lbl_peso_usado = ft.Text("0 kg cargados", size=15, color="cyan200")
-    lbl_peso_restante = ft.Text("Restante: 0 kg", size=15, color="amberAccent")
-    barra_peso = ft.ProgressBar(value=0.0, width=400, color="cyan400", bgcolor="grey800")
-
-    # Tabla de resultados
-    tabla_seleccionadas = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("Vaca Seleccionada")),
-            ft.DataColumn(ft.Text("Peso (kg)"), numeric=True),
-            ft.DataColumn(ft.Text("Producción (L)"), numeric=True),
-        ],
-        rows=[]
-    )
-
-    def actualizar_tabla():
-        tabla_vacas.rows.clear()
-        for idx, vaca in enumerate(lista_vacas, start=1):
-            def crear_borrar(index=idx-1):
-                return lambda e: eliminar_vaca(index)
-
-            tabla_vacas.rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(str(idx))),
-                        ft.DataCell(ft.Text(vaca.nombre, weight="w500")),
-                        ft.DataCell(ft.Text(f"{vaca.peso} kg")),
-                        ft.DataCell(ft.Text(f"{vaca.litros:.2f} L")),
-                        ft.DataCell(
-                            ft.IconButton(
-                                icon="delete",
-                                icon_color="red400",
-                                tooltip="Eliminar",
-                                on_click=crear_borrar()
-                            )
-                        ),
-                    ]
+    def actualizar_lista_integrantes():
+        lista_integrantes.controls.clear()
+        for integrante in evento["integrantes"]:
+            lista_integrantes.controls.append(
+                ft.ListTile(
+                    title=ft.Text(integrante),
+                    leading=ft.Icon("person"),
+                    trailing=ft.IconButton(
+                        icon="delete", 
+                        icon_color="red",
+                        on_click=lambda e, nom=integrante: eliminar_integrante(nom)
+                    )
                 )
             )
+        actualizar_opciones_gastos()
         page.update()
 
-    def agregar_vaca(e):
-        nombre = txt_nombre.value.strip()
-        peso_str = txt_peso.value.strip()
-        litros_str = txt_litros.value.strip()
-
+    def agregar_integrante(e):
+        nombre = txt_nuevo_integrante.value.strip()
         if not nombre:
-            mostrar_mensaje("Debes ingresar el nombre de la vaca.", es_error=True)
+            mostrar_mensaje("Ingresa un nombre válido.", error=True)
             return
+        if nombre in evento["integrantes"]:
+            mostrar_mensaje("Este integrante ya existe.", error=True)
+            return
+            
+        evento["integrantes"].append(nombre)
+        txt_nuevo_integrante.value = ""
+        guardar_datos(datos)
+        actualizar_lista_integrantes()
+        mostrar_mensaje(f"{nombre} agregado.")
 
+    def eliminar_integrante(nombre):
+        en_gasto = any(
+            g["pagador"] == nombre or nombre in g["involucrados"] 
+            for g in evento["gastos"]
+        )
+        if en_gasto:
+            mostrar_mensaje("No puedes eliminar a alguien que ya tiene gastos registrados.", error=True)
+            return
+            
+        evento["integrantes"].remove(nombre)
+        guardar_datos(datos)
+        actualizar_lista_integrantes()
+        mostrar_mensaje(f"{nombre} eliminado.")
+
+    btn_agregar_integrante = ft.ElevatedButton("Agregar", on_click=agregar_integrante)
+    
+    # --- PESTAÑA 2: GASTOS ---
+    txt_concepto = ft.TextField(label="¿Qué compraron? (Ej. Pizza)")
+    txt_monto = ft.TextField(label="Monto ($)", keyboard_type="number")
+    drop_pagador = ft.Dropdown(label="¿Quién pagó?")
+    col_involucrados = ft.Column(scroll="adaptive")
+
+    def actualizar_opciones_gastos():
+        drop_pagador.options = [ft.dropdown.Option(i) for i in evento["integrantes"]]
+        col_involucrados.controls = [
+            ft.Checkbox(label=i, value=True) for i in evento["integrantes"]
+        ]
+
+    def agregar_gasto(e):
+        concepto = txt_concepto.value.strip()
         try:
-            peso = int(peso_str)
-            litros = float(litros_str)
-            if peso <= 0 or litros <= 0:
-                raise ValueError()
-        except ValueError:
-            mostrar_mensaje("El peso y los litros deben ser números positivos.", es_error=True)
+            monto = float(txt_monto.value)
+            if monto <= 0: raise ValueError
+        except:
+            mostrar_mensaje("El monto debe ser un número positivo.", error=True)
             return
-
-        lista_vacas.append(Vaca(nombre, peso, litros))
-        txt_nombre.value = ""
-        txt_peso.value = ""
-        txt_litros.value = ""
-        actualizar_tabla()
-        mostrar_mensaje(f"Vaca '{nombre}' agregada con éxito.")
-
-    def eliminar_vaca(index: int):
-        if 0 <= index < len(lista_vacas):
-            eliminada = lista_vacas.pop(index)
-            actualizar_tabla()
-            mostrar_mensaje(f"Se eliminó a '{eliminada.nombre}'.")
-
-    def cargar_datos_ejemplo(e):
-        txt_capacidad.value = "700"
-        lista_vacas.clear()
-        lista_vacas.extend([
-            Vaca("Margarita", 360, 40.0),
-            Vaca("Lola",      250, 35.0),
-            Vaca("Manchas",   400, 43.0),
-            Vaca("Pinta",     180, 28.0),
-            Vaca("Blanca",    220, 25.0),
-            Vaca("Estrella",  120, 18.0),
-        ])
-        actualizar_tabla()
-        mostrar_mensaje("Se cargaron 6 vacas de ejemplo (Capacidad: 700 kg).")
-
-    def limpiar_todo(e):
-        lista_vacas.clear()
-        actualizar_tabla()
-        tabla_seleccionadas.rows.clear()
-        lbl_produccion_total.value = "0.00 L"
-        lbl_peso_usado.value = "0 kg cargados"
-        lbl_peso_restante.value = "Restante: 0 kg"
-        barra_peso.value = 0.0
-        page.update()
-        mostrar_mensaje("Se limpiaron todos los datos.")
-
-    def calcular_optimizacion(e):
-        if not lista_vacas:
-            mostrar_mensaje("Debes registrar al menos una vaca antes de calcular.", es_error=True)
+            
+        pagador = drop_pagador.value
+        if not pagador:
+            mostrar_mensaje("Selecciona quién pagó.", error=True)
             return
+            
+        involucrados = [cb.label for cb in col_involucrados.controls if cb.value]
+        if not involucrados:
+            mostrar_mensaje("Selecciona al menos un involucrado.", error=True)
+            return
+            
+        evento["gastos"].append({
+            "concepto": concepto,
+            "monto": monto,
+            "pagador": pagador,
+            "involucrados": involucrados
+        })
+        guardar_datos(datos)
+        
+        txt_concepto.value = ""
+        txt_monto.value = ""
+        mostrar_mensaje("Gasto registrado con éxito.")
+        actualizar_resumen()
 
+    btn_agregar_gasto = ft.ElevatedButton("Registrar Gasto", on_click=agregar_gasto, bgcolor="blue", color="white")
+
+    # --- PESTAÑA 3: RESUMEN Y PAGOS ---
+    resumen_col = ft.Column()
+    pagos_col = ft.Column()
+    
+    def copiar_portapapeles(e):
+        texto = "🐮 RESUMEN DE LA VACA 🐮\n\n"
+        for p in pagos_col.controls:
+            if isinstance(p, ft.Text):
+                texto += p.value + "\n"
         try:
-            capacidad = int(txt_capacidad.value.strip())
-            if capacidad <= 0:
-                raise ValueError()
-        except ValueError:
-            mostrar_mensaje("La capacidad del camión debe ser un entero positivo.", es_error=True)
+            page.set_clipboard(texto)
+        except Exception:
+            pass
+        mostrar_mensaje("¡Plan de pagos copiado al portapapeles listo para WhatsApp!")
+
+    btn_compartir = ft.ElevatedButton("📋 Copiar para WhatsApp", on_click=copiar_portapapeles, bgcolor="green", color="white")
+
+    def actualizar_resumen():
+        resumen_col.controls.clear()
+        pagos_col.controls.clear()
+        
+        if not evento["integrantes"]:
+            resumen_col.controls.append(ft.Text("No hay integrantes aún."))
+            page.update()
             return
-
-        max_litros, peso_usado, seleccionadas = optimizar_mochila(lista_vacas, capacidad)
-
-        lbl_produccion_total.value = f"{max_litros:.2f} Litros"
-        lbl_peso_usado.value = f"Cargado: {peso_usado:,} kg de {capacidad:,} kg"
-        lbl_peso_restante.value = f"Espacio Libre: {capacidad - peso_usado:,} kg"
-        barra_peso.value = (peso_usado / capacidad) if capacidad > 0 else 0.0
-
-        tabla_seleccionadas.rows.clear()
-        for v in seleccionadas:
-            tabla_seleccionadas.rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(f"🐄 {v.nombre}", weight="bold", color="cyan100")),
-                        ft.DataCell(ft.Text(f"{v.peso} kg")),
-                        ft.DataCell(ft.Text(f"{v.litros:.2f} L", color="green300")),
-                    ]
-                )
-            )
-
+            
+        saldos = calcular_saldos(evento["integrantes"], evento["gastos"])
+        
+        resumen_col.controls.append(ft.Text("Estado de Cuentas:", weight="bold", size=18))
+        for nombre, saldo_centavos in saldos.items():
+            saldo = saldo_centavos / 100.0
+            color_texto = "green" if saldo > 0 else "red" if saldo < 0 else "grey"
+            texto = f"{nombre}: {'Le deben' if saldo > 0 else 'Debe'} ${abs(saldo):.2f}" if saldo != 0 else f"{nombre}: Saldo $0.00"
+            resumen_col.controls.append(ft.Text(texto, color=color_texto, weight="bold"))
+            
+        pagos = optimizar_pagos(saldos)
+        pagos_col.controls.append(ft.Text("Plan de Pagos (Minimizado):", weight="bold", size=18, color="cyan"))
+        
+        if not pagos:
+            pagos_col.controls.append(ft.Text("💸 ¡Todos están al día! Cuentas saldadas."))
+        else:
+            for p in pagos:
+                pagos_col.controls.append(ft.Text(f"👉 {p['de']} le transfiere a {p['para']}: ${p['monto']:.2f}"))
+                
         page.update()
-        mostrar_mensaje("¡Carga optimizada con éxito!")
 
-    # Cargar datos al iniciar
-    cargar_datos_ejemplo(None)
-
-    # Componentes visuales
-    header = ft.Container(
+    # --- VISTAS DE LAS PESTAÑAS ---
+    vista_grupo = ft.Container(
+        padding=10,
         content=ft.Column([
-            ft.Row([
-                ft.Text("🚜", size=32),
-                ft.Text("MISIÓN 6: OPTIMIZACIÓN DE CARGA DE VACAS", size=22, weight="bold"),
-            ]),
-            ft.Text("Problema de la Mochila 0/1 con Programación Dinámica · INDEL 3DS \"B\"", color="grey400", size=13)
-        ]),
-        padding=15,
-        bgcolor="#1E1E2E",
-        border_radius=10
+            ft.Row([txt_nuevo_integrante, btn_agregar_integrante]),
+            ft.Divider(),
+            lista_integrantes
+        ])
     )
 
-    card_entradas = ft.Card(
-        content=ft.Container(
-            content=ft.Column([
-                ft.Text("1. Configuración de Entrada", size=18, weight="bold", color="cyan300"),
-                ft.Row([txt_capacidad]),
-                ft.Divider(),
-                ft.Text("Registrar Nueva Vaca:", size=15, weight="w500"),
-                ft.Row([txt_nombre, txt_peso, txt_litros], wrap=True),
-                ft.Row([
-                    ft.ElevatedButton("➕ Agregar Vaca", on_click=agregar_vaca, bgcolor="cyan700", color="white"),
-                    ft.OutlinedButton("🔄 Cargar Datos de Prueba", on_click=cargar_datos_ejemplo),
-                    ft.OutlinedButton("🧹 Limpiar Todo", on_click=limpiar_todo),
-                ], wrap=True),
-            ]),
-            padding=15
-        )
+    vista_gastos = ft.Container(
+        padding=10,
+        content=ft.Column([
+            txt_concepto,
+            txt_monto,
+            drop_pagador,
+            ft.Text("¿Entre quiénes se divide?"),
+            ft.Container(content=col_involucrados, height=150),
+            btn_agregar_gasto
+        ], scroll="adaptive")
     )
 
-    card_tabla_vacas = ft.Card(
-        content=ft.Container(
-            content=ft.Column([
-                ft.Text("2. Vacas Disponibles en el Corral", size=18, weight="bold", color="cyan300"),
-                ft.Column([tabla_vacas], height=220, scroll="adaptive"),
-                ft.FilledButton(
-                    "🚀 OPTIMIZAR CARGA DEL CAMIÓN",
-                    on_click=calcular_optimizacion,
-                    style=ft.ButtonStyle(bgcolor="green700", padding=15),
-                    width=350
-                )
-            ]),
-            padding=15
-        )
+    vista_saldos = ft.Container(
+        padding=10,
+        content=ft.Column([
+            resumen_col,
+            ft.Divider(),
+            pagos_col,
+            ft.Container(height=20),
+            btn_compartir
+        ], scroll="adaptive")
     )
 
-    card_resultados = ft.Card(
-        content=ft.Container(
-            content=ft.Column([
-                ft.Text("3. Resultados de la Carga Óptima", size=18, weight="bold", color="greenAccent"),
-                ft.Row([
-                    ft.Column([
-                        ft.Text("Producción Máxima Obtenida:", size=14, color="grey400"),
-                        lbl_produccion_total,
-                    ]),
-                    ft.VerticalDivider(width=30),
-                    ft.Column([
-                        lbl_peso_usado,
-                        barra_peso,
-                        lbl_peso_restante,
-                    ]),
-                ], alignment="spaceEvenly"),
-                ft.Divider(),
-                ft.Text("Vacas seleccionadas que suben al camión:", size=15, weight="bold"),
-                ft.Column([tabla_seleccionadas], height=200, scroll="adaptive")
-            ]),
-            padding=20
-        )
-    )
+    # Contenedor dinámico de vista activa
+    contenedor_principal = ft.Container(content=vista_grupo, expand=True)
+
+    # --- NAVEGACIÓN PERSONALIZADA (100% INMUNE A ERRORES DE VERSION) ---
+    def cambiar_tab(e, index):
+        vistas = [vista_grupo, vista_gastos, vista_saldos]
+        contenedor_principal.content = vistas[index]
+        
+        # Resaltar botón activo
+        btn_tab_grupo.bgcolor = "blue" if index == 0 else "grey_800"
+        btn_tab_gastos.bgcolor = "blue" if index == 1 else "grey_800"
+        btn_tab_saldos.bgcolor = "blue" if index == 2 else "grey_800"
+        
+        page.update()
+
+    btn_tab_grupo = ft.ElevatedButton("👥 Grupo", on_click=lambda e: cambiar_tab(e, 0), bgcolor="blue", color="white")
+    btn_tab_gastos = ft.ElevatedButton("🛒 Gastos", on_click=lambda e: cambiar_tab(e, 1), bgcolor="grey_800", color="white")
+    btn_tab_saldos = ft.ElevatedButton("💰 Saldos", on_click=lambda e: cambiar_tab(e, 2), bgcolor="grey_800", color="white")
+
+    barra_navegacion = ft.Row([btn_tab_grupo, btn_tab_gastos, btn_tab_saldos], alignment="center")
 
     page.add(
-        header,
-        card_entradas,
-        card_tabla_vacas,
-        card_resultados
+        ft.Text("🐮 LA VACA", size=24, weight="bold", color="amber"),
+        barra_navegacion,
+        ft.Divider(),
+        contenedor_principal
     )
-
+    
+    actualizar_lista_integrantes()
+    actualizar_resumen()
 
 if __name__ == "__main__":
     ft.app(target=main)
