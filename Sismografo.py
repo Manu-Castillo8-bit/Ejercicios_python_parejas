@@ -27,6 +27,23 @@ COLOR_AMBAR = "#FFB300"
 COLOR_MAGENTA = "#FF2E97"
 COLOR_BG_MAP = "#0F172A"
 COLOR_LINE = "#1E293B"
+COLOR_MAPA = "#475569"  # Color para las líneas de la silueta costera y fronteras
+
+# Coordenadas geográficas simplificadas de la silueta de Centroamérica
+COASTLINES = [
+    # Costa del Pacífico (Desde Guatemala hasta Panamá)
+    [(-92.2, 14.6), (-90.8, 14.2), (-89.8, 13.5), (-88.8, 13.2), (-87.8, 13.1),
+     (-87.3, 13.3), (-87.1, 12.9), (-86.2, 11.8), (-85.8, 11.1), (-84.8, 9.9),
+     (-83.6, 8.5), (-82.9, 8.2), (-81.8, 7.2), (-80.0, 7.4), (-78.5, 7.5)],
+    
+    # Costa del Caribe (Desde Belice/Honduras hasta Panamá)
+    [(-88.3, 18.2), (-88.2, 15.8), (-86.0, 15.9), (-85.0, 16.0), (-83.2, 15.0),
+     (-83.1, 14.0), (-83.6, 11.5), (-83.6, 10.9), (-82.7, 9.6), (-80.0, 9.2),
+     (-79.5, 9.5), (-77.5, 8.6)],
+
+    # Límite territorial norte de El Salvador / Frontera con Guatemala y Honduras
+    [(-90.1, 13.9), (-89.5, 14.4), (-89.1, 14.4), (-88.1, 14.1), (-87.7, 13.1)]
+]
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -66,7 +83,6 @@ def main(page: ft.Page):
         "selected_eq": None
     }
 
-    # Función auxiliar para mostrar avisos en pantalla fácilmente
     def mostrar_notificacion(mensaje, color_bg="#334155"):
         snack = ft.SnackBar(
             content=ft.Text(mensaje, color="white", weight="bold"),
@@ -78,7 +94,7 @@ def main(page: ft.Page):
         page.update()
 
     # -------------------------------------------------------------
-    # COMPONENTES
+    # COMPONENTES DE LA INTERFAZ
     # -------------------------------------------------------------
     mag_filter = ft.Dropdown(
         options=[ft.dropdown.Option(x) for x in ["0.0", "2.0", "3.0", "4.0", "4.5", "5.0"]],
@@ -87,7 +103,7 @@ def main(page: ft.Page):
         label="Mag Mín"
     )
     
-    lbl_status = ft.Text("Estado: Esperando acción...", color="grey", size=13)
+    lbl_status = ft.Text("Estado: Listo", color="grey", size=13)
     
     lbl_detail_mag = ft.Text("Magnitud: --", weight="bold", size=16)
     lbl_detail_place = ft.Text("Lugar: Selecciona un sismo de la lista", width=280)
@@ -139,12 +155,24 @@ def main(page: ft.Page):
         map_canvas.shapes.clear()
         w, h = state["map_width"], state["map_height"]
         
+        # 1. Cuadrícula de coordenadas
         for i in range(1, 10):
             x = i * (w / 10)
             y = i * (h / 10)
             map_canvas.shapes.append(cv.Line(x, 0, x, h, paint=ft.Paint(color=COLOR_LINE, stroke_width=1)))
             map_canvas.shapes.append(cv.Line(0, y, w, y, paint=ft.Paint(color=COLOR_LINE, stroke_width=1)))
             
+        # 2. Silueta del mapa de Centroamérica
+        map_paint = ft.Paint(color=COLOR_MAPA, stroke_width=2)
+        for path in COASTLINES:
+            for k in range(len(path) - 1):
+                lon1, lat1 = path[k]
+                lon2, lat2 = path[k + 1]
+                x1, y1 = coords_to_pixels(lon1, lat1)
+                x2, y2 = coords_to_pixels(lon2, lat2)
+                map_canvas.shapes.append(cv.Line(x1, y1, x2, y2, paint=map_paint))
+
+        # 3. Ubicación de San Salvador
         ss_x, ss_y = coords_to_pixels(SS_LON, SS_LAT)
         map_canvas.shapes.extend([
             cv.Line(ss_x - 8, ss_y, ss_x + 8, ss_y, paint=ft.Paint(color="white", stroke_width=2)),
@@ -152,6 +180,7 @@ def main(page: ft.Page):
             cv.Text(ss_x + 12, ss_y - 12, "San Salvador", ft.TextStyle(color="white", size=11, weight="bold"))
         ])
         
+        # 4. Epicentros de los sismos
         try:
             min_mag = float(mag_filter.value) if mag_filter.value else 0.0
         except ValueError:
@@ -232,7 +261,7 @@ def main(page: ft.Page):
     mag_filter.on_change = refresh_ui
 
     # -------------------------------------------------------------
-    # ACCIONES DE BOTONES (ACTUALIZAR Y EXPORTAR)
+    # PULL DE DATOS Y EXPORTAR
     # -------------------------------------------------------------
     def fetch_data_task():
         btn_refresh.disabled = True
@@ -264,7 +293,6 @@ def main(page: ft.Page):
             mostrar_notificacion(f"✅ ¡Se descargaron {len(filtered)} sismos con éxito!", "#15803D")
             
         except Exception as err:
-            print(f"Error HTTP: {err}")
             lbl_status.value = "⚠️ Sin internet: Cargando caché local"
             lbl_status.color = COLOR_AMBAR
             load_cache()
@@ -285,11 +313,10 @@ def main(page: ft.Page):
                     sismos = json.load(f)
                     state["sismos_data"] = sismos
                 refresh_ui()
-            except Exception as e:
-                print(f"Error al leer caché: {e}")
+            except Exception:
+                pass
 
     def export_csv(e):
-        print("Botón Exportar presionado") # Verificación en consola
         if not state["sismos_data"]:
             mostrar_notificacion("❌ No hay sismos en la lista para exportar.", "#B91C1C")
             return
@@ -329,8 +356,6 @@ def main(page: ft.Page):
                     exportados += 1
                     
             ruta_completa = os.path.abspath(filename)
-            print(f"Archivo guardado en: {ruta_completa}")
-            
             lbl_status.value = f"💾 CSV Guardado ({exportados} filas)"
             lbl_status.color = COLOR_VERDE
             lbl_status.update()
@@ -338,7 +363,6 @@ def main(page: ft.Page):
             mostrar_notificacion(f"📁 Guardado ({exportados} sismos) en:\n{ruta_completa}", "#0D9488")
             
         except Exception as ex:
-            print(f"Error guardando CSV: {ex}")
             mostrar_notificacion(f"❌ Error al guardar archivo: {ex}", "#B91C1C")
 
     def on_map_resize(e: cv.CanvasResizeEvent):
@@ -367,7 +391,6 @@ def main(page: ft.Page):
     main_layout = ft.Row([left_panel, map_container], expand=True)
     page.add(top_bar, ft.Divider(), main_layout)
     
-    # Cargar inicial
     load_cache()
     trigger_fetch()
 
