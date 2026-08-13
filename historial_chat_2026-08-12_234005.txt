@@ -1,0 +1,53 @@
+=== HISTORIAL DE CHAT · INDEL 3DS ===
+Fecha de guardado: 2026-08-12 23:40:05
+=============================================
+
+[23:15:37] Sistema: ¡Bienvenido/a al Asistente INDEL 3DS! Escribe un mensaje o 'ayuda'.
+[23:15:43] Tú: ayuda
+[23:15:44] Bot: Puedo ayudarte con:
+ • Preguntarme la hora y fecha actual
+ • Contarte chistes de programadores
+ • Guardar y recordar tu nombre (ej: 'Me llamo Carlos')
+ • Resolver operaciones matemáticas simples (ej: 'cuanto es 25 * 4')
+ • Información sobre INDEL, Python y Desarrollo de Software
+ • O simplemente platicar conmigo.
+[23:15:57] Tú: resolver operaciones matematicas
+[23:15:58] Bot: No logré entender tu mensaje con certeza. 🤔
+Prueba preguntándome:
+ • '¿Qué hora es?'
+ • 'Cuéntame un chiste'
+ • '¿Qué sabes sobre Python?'
+ • 'Me llamo [tu nombre]' o escribe 'ayuda'.
+[23:16:25] Tú: Me llamo Manuel
+[23:16:26] Bot: ¡Mucho gusto, Manuel! Me acordaré de tu nombre durante nuestra conversación.
+[23:16:32] Tú: ayuda
+[23:16:32] Bot: Puedo ayudarte con:
+ • Preguntarme la hora y fecha actual
+ • Contarte chistes de programadores
+ • Guardar y recordar tu nombre (ej: 'Me llamo Carlos')
+ • Resolver operaciones matemáticas simples (ej: 'cuanto es 25 * 4')
+ • Información sobre INDEL, Python y Desarrollo de Software
+ • O simplemente platicar conmigo.
+[23:16:43] Tú: como me llamo
+[23:16:43] Bot: Te llamas Manuel. ¡Tengo buena memoria!
+[23:16:46] Tú: gracias
+[23:16:47] Bot: ¡A la orden! A seguir programando con todo.
+[23:17:02] Tú: que puedes hacer
+[23:17:03] Bot: No logré entender tu mensaje con certeza. 🤔
+Prueba preguntándome:
+ • '¿Qué hora es?'
+ • 'Cuéntame un chiste'
+ • '¿Qué sabes sobre Python?'
+ • 'Me llamo [tu nombre]' o escribe 'ayuda'.
+[23:17:23] Tú: 1+1
+[23:17:24] Bot: El resultado de 1+1 es: 2
+[23:36:39] Tú: 8/2
+[23:36:39] Bot: El resultado de 8/2 es: 4
+[23:36:55] Tú: 0/0
+[23:36:55] Bot: No se puede dividir entre cero.
+[23:37:06] Tú: 1.0122+2.81263
+[23:37:06] Bot: El resultado de 1.0122+2.81263 es: 3.82
+[23:39:58] Tú: gracias
+[23:39:58] Bot: ¡A la orden! A seguir programando con todo.
+[23:40:01] Tú: bye
+[23:40:02] Bot: ¡Nos vemos! Recuerda guardar tus cambios y comentar tu código.

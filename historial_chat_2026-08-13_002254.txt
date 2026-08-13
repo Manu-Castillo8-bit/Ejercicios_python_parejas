@@ -1,0 +1,21 @@
+=== HISTORIAL DE CHAT · INDEL 3DS ===
+Fecha de guardado: 2026-08-13 00:22:54
+=============================================
+
+[00:19:32] Sistema: ¡Bienvenido/a al Asistente INDEL 3DS! Escribe un mensaje o 'ayuda'.
+[00:19:39] Tú: ayuda
+[00:19:39] Bot: Puedo ayudarte con:
+ • Preguntarme la hora y fecha actual
+ • Contarte chistes de programadores
+ • Guardar y recordar tu nombre
+ • Resolver operaciones matemáticas simples
+ • Activar el 'modo profe' para resolver dudas de clase
+ • Información sobre INDEL y Python.
+[00:19:44] Tú: modo profe
+[00:19:44] Bot: ¡Modo Profe activado! 🧑‍🏫 Hazme tus preguntas del módulo sobre Python, Flet, librerías, etc. (Escribe 'salir profe' para desactivarlo).
+[00:19:53] Tú: que es flet
+[00:19:53] Bot: Flet es un framework que permite crear aplicaciones web, de escritorio y móviles interactivas usando solo Python (está basado en Flutter).
+[00:20:05] Tú: que es pyton
+[00:20:06] Bot: Hmm, no tengo esa respuesta en mi banco de preguntas. Intenta preguntar sobre qué es Python, variables, listas, flet, venv, etc.
+[00:20:11] Tú: que es python
+[00:20:11] Bot: Python es un lenguaje de programación de alto nivel, interpretado y muy popular por ser fácil de leer y escribir.

@@ -34,7 +34,39 @@ class ChatBotBrain:
     def __init__(self):
         self.user_name = None  # Memoria en sesión para recordar el nombre
 
-        # Definición de más de 10 intenciones con sus palabras clave y respuestas
+        # --- INICIO AGREGADO: MODO PROFE ---
+        self.modo_profe_activo = False
+        
+        # Banco de preguntas frecuentes (claves en minúsculas y sin tildes para fácil coincidencia)
+        self.faq_profe = {
+            "que es python": "Python es un lenguaje de programación de alto nivel, interpretado y muy popular por ser fácil de leer y escribir.",
+            "que es una libreria": "Una librería (o biblioteca) es un conjunto de código preescrito que puedes reutilizar para no tener que programar todo desde cero.",
+            "que es flet": "Flet es un framework que permite crear aplicaciones web, de escritorio y móviles interactivas usando solo Python (está basado en Flutter).",
+            "venv": "Un .venv (entorno virtual) es una carpeta aislada para tu proyecto donde instalas librerías sin afectar al resto de proyectos en tu computadora.",
+            "que es una variable": "Una variable es un espacio en la memoria de la computadora donde guardamos un dato que puede cambiar durante la ejecución del programa.",
+            "que es un string": "Un string (o cadena de texto) es un tipo de dato que representa texto. En Python se escribe entre comillas simples o dobles.",
+            "que es un int": "Un 'int' (entero) es un tipo de dato numérico que representa números enteros, sin parte decimal (ej: 5, -10, 42).",
+            "que es un float": "Un 'float' (flotante) es un tipo de dato numérico que representa números con decimales (ej: 3.14, -0.5).",
+            "que es un booleano": "Un booleano es un tipo de dato que solo puede tener dos valores: True (Verdadero) o False (Falso).",
+            "que es una lista": "Una lista es una colección ordenada y modificable de elementos. En Python se escriben entre corchetes [ ].",
+            "que es un diccionario": "Un diccionario es una colección de datos en formato 'clave: valor'. Se escriben entre llaves { }.",
+            "que es un bucle": "Un bucle (o ciclo) es una estructura que repite un bloque de código varias veces mientras se cumpla una condición.",
+            "que es un for": "El bucle 'for' se usa para iterar sobre una secuencia (como una lista o un string) un número determinado de veces.",
+            "que es un while": "El bucle 'while' repite un bloque de código mientras una condición siga siendo verdadera.",
+            "que es un if": "La sentencia 'if' se usa para tomar decisiones: si una condición es verdadera, se ejecuta un bloque de código.",
+            "que es un else": "El 'else' acompaña al 'if' y se ejecuta cuando la condición del 'if' es falsa.",
+            "que es un elif": "El 'elif' (else if) permite evaluar múltiples condiciones en cadena si la primera (if) fue falsa.",
+            "que es una funcion": "Una función es un bloque de código reutilizable que realiza una tarea específica y solo se ejecuta cuando es llamada.",
+            "que es print": "La función print() se utiliza para mostrar texto o variables en la consola.",
+            "que es indentacion": "La indentación son los espacios al inicio de una línea de código. En Python es obligatoria para definir bloques de código (como dentro de un if o una función).",
+            "que es un comentario": "Un comentario es una nota en el código que el programa ignora. Se usa para explicar qué hace el código. En Python inician con #.",
+            "que es la sintaxis": "La sintaxis es el conjunto de reglas que definen cómo se debe escribir el código para que la computadora lo entienda.",
+            "que es un modulo": "Un módulo es un archivo que contiene código Python (funciones, variables, clases) que puedes importar y usar en otros archivos.",
+            "que es un ide": "Un IDE (Entorno de Desarrollo Integrado) es un programa como VS Code o PyCharm que nos da herramientas para escribir, probar y corregir código más fácil."
+        }
+        # --- FIN AGREGADO: MODO PROFE ---
+
+        # Definición de intenciones normales...
         self.intents = {
             "saludo": {
                 "keywords": ["hola", "buenos", "dias", "tardes", "noches", "que tal", "saludos", "hey"],
@@ -86,7 +118,7 @@ class ChatBotBrain:
                 ]
             },
             "sobre_python": {
-                "keywords": ["python", "lenguaje", "programar", "tkinter", "flet", "codigo"],
+                "keywords": ["python", "lenguaje", "programar", "tkinter", "codigo"],
                 "responses": [
                     "Python es un lenguaje interpretado, de tipado dinámico y súper versátil: desde scripts de consola hasta IA.",
                     "Python 3.12+ destaca por su legibilidad y soporte para GUI con Tkinter, CustomTkinter y Flet.",
@@ -108,7 +140,7 @@ class ChatBotBrain:
             "ayuda": {
                 "keywords": ["ayuda", "comandos", "que sabes hacer", "opciones", "menu", "manual"],
                 "responses": [
-                    "Puedo ayudarte con:\n • Preguntarme la hora y fecha actual\n • Contarte chistes de programadores\n • Guardar y recordar tu nombre (ej: 'Me llamo Carlos')\n • Resolver operaciones matemáticas simples (ej: 'cuanto es 25 * 4')\n • Información sobre INDEL, Python y Desarrollo de Software\n • O simplemente platicar conmigo."
+                    "Puedo ayudarte con:\n • Preguntarme la hora y fecha actual\n • Contarte chistes de programadores\n • Guardar y recordar tu nombre\n • Resolver operaciones matemáticas simples\n • Activar el 'modo profe' para resolver dudas de clase\n • Información sobre INDEL y Python."
                 ]
             }
         }
@@ -118,22 +150,17 @@ class ChatBotBrain:
         Paso 1: Normalización de texto.
         Pasa a minúsculas, remueve tildes/acentos y elimina signos de puntuación.
         """
-        # Convertir a minúsculas
         text = text.lower()
-        # Remover tildes usando descomposición NFD
         text = "".join(
             c for c in unicodedata.normalize("NFD", text)
             if unicodedata.category(c) != "Mn"
         )
-        # Quitar signos de puntuación (dejar solo letras, números y espacios)
         text = re.sub(r"[^\w\s]", " ", text)
-        # Reducir espacios múltiples a uno solo
         return " ".join(text.split())
 
     def evaluate_math(self, text: str) -> str | None:
-        """Intenta detectar y resolver operaciones matemáticas básicas (suma, resta, multiplicación, división)."""
+        """Intenta detectar y resolver operaciones matemáticas básicas."""
         clean_expr = re.sub(r"[^\d+\-*/. ]", "", text)
-        # Buscar patrones como "15 + 4" o "100 / 2"
         match = re.search(r"(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)", clean_expr)
         if match:
             n1, op, n2 = float(match.group(1)), match.group(2), float(match.group(3))
@@ -144,7 +171,6 @@ class ChatBotBrain:
                 elif op == "/":
                     if n2 == 0: return "No se puede dividir entre cero."
                     res = n1 / n2
-                # Formatear si es entero exacto
                 res_str = f"{res:.2f}".rstrip("0").rstrip(".")
                 return f"El resultado de {match.group(0).strip()} es: {res_str}"
             except Exception:
@@ -153,7 +179,6 @@ class ChatBotBrain:
 
     def detect_name(self, raw_text: str, norm_text: str) -> str | None:
         """Detecta si el usuario está diciendo su nombre o preguntando por él."""
-        # Detectar asignación de nombre: "me llamo X", "mi nombre es X", "soy X"
         patterns = [
             r"me llamo\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)",
             r"mi nombre es\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)",
@@ -163,12 +188,10 @@ class ChatBotBrain:
             m = re.search(pat, raw_text, re.IGNORECASE)
             if m:
                 found_name = m.group(1).capitalize()
-                # Evitar capturar palabras comunes
                 if found_name.lower() not in ["un", "una", "el", "la", "estudiante", "programador"]:
                     self.user_name = found_name
                     return f"¡Mucho gusto, {self.user_name}! Me acordaré de tu nombre durante nuestra conversación."
 
-        # Detectar pregunta por su nombre
         if any(k in norm_text for k in ["como me llamo", "sabes mi nombre", "cual es mi nombre", "quien soy"]):
             if self.user_name:
                 return f"Te llamas {self.user_name}. ¡Tengo buena memoria!"
@@ -184,6 +207,25 @@ class ChatBotBrain:
         normalized_input = self.normalize(raw_input)
         if not normalized_input:
             return "Parece que no escribiste nada. ¿En qué te puedo ayudar?"
+
+        # --- INICIO AGREGADO: LÓGICA DEL MODO PROFE ---
+        # Activar el modo profe
+        if "modo profe" in normalized_input and not self.modo_profe_activo:
+            self.modo_profe_activo = True
+            return "¡Modo Profe activado! 🧑‍🏫 Hazme tus preguntas del módulo sobre Python, Flet, librerías, etc. (Escribe 'salir profe' para desactivarlo)."
+        
+        # Desactivar el modo profe
+        if "salir profe" in normalized_input and self.modo_profe_activo:
+            self.modo_profe_activo = False
+            return "Modo Profe desactivado. ¡Volvemos al asistente normal! 🤖"
+
+        # Si el modo profe está activo, interceptamos el mensaje y buscamos en el FAQ
+        if self.modo_profe_activo:
+            for pregunta, respuesta in self.faq_profe.items():
+                if pregunta in normalized_input:
+                    return respuesta
+            return "Hmm, no tengo esa respuesta en mi banco de preguntas. Intenta preguntar sobre qué es Python, variables, listas, flet, venv, etc."
+        # --- FIN AGREGADO: LÓGICA DEL MODO PROFE ---
 
         # 1. Verificar si el usuario interactúa con su nombre
         name_response = self.detect_name(raw_input, normalized_input)
@@ -201,26 +243,22 @@ class ChatBotBrain:
             score = 0
             for kw in data["keywords"]:
                 norm_kw = self.normalize(kw)
-                # Coincidencia por palabra completa o frase exacta
                 if re.search(r"\b" + re.escape(norm_kw) + r"\b", normalized_input):
                     score += 1
             scores[intent_name] = score
 
-        # Obtener la intención con el puntaje más alto
         best_intent, max_score = max(scores.items(), key=lambda x: x[1])
 
-        # Si ninguna intención sumó al menos 1 punto -> Mensaje por defecto orientativo
         if max_score < 1:
             return (
                 "No logré entender tu mensaje con certeza. 🤔\n"
                 "Prueba preguntándome:\n"
                 " • '¿Qué hora es?'\n"
                 " • 'Cuéntame un chiste'\n"
-                " • '¿Qué sabes sobre Python?'\n"
+                " • 'Activa el modo profe'\n"
                 " • 'Me llamo [tu nombre]' o escribe 'ayuda'."
             )
 
-        # Responder según la intención ganadora
         if best_intent == "hora_fecha":
             now = datetime.now()
             dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
@@ -232,7 +270,6 @@ class ChatBotBrain:
             hora_str = now.strftime("%I:%M %p")
             return f"Hoy es {dia_semana} {dia_num} de {mes_nombre} del {now.year} y son las {hora_str}."
 
-        # Elegir una respuesta al azar de la intención ganadora
         return random.choice(self.intents[best_intent]["responses"])
 
 
