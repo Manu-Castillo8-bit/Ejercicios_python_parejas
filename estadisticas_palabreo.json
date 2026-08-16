@@ -1,0 +1,15 @@
+{
+  "jugadas": 3,
+  "ganadas": 2,
+  "racha_actual": 0,
+  "mejor_racha": 2,
+  "intentos": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    2
+  ],
+  "total_intentos": 12
+}
